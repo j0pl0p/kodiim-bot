@@ -3,6 +3,7 @@ import os
 import telebot
 import requests
 import re
+import cv2
 
 BOT_TOKEN = '6130737728:AAEH_8HaguB05phCGzOI-GZQxkBfnCFx8-E'
 URL_REGEX = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
@@ -52,19 +53,32 @@ def download_video(message, url):
     # with open('log.txt', 'w') as log:
     #    print(message, log)
     # print(message)
-    if not os.path.exists(f'user_data/{message.from_user.id}'):
-        os.makedirs(f'user_data/{message.from_user.id}')
-    vid_id = message.video.file_id
+    if not os.path.exists(f'user_data/{message.from_user.id}/frames'):
+        os.makedirs(f'user_data/{message.from_user.id}/frames')
     # print('id received')
-    vid_url = f'https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={vid_id}'
-    vid_file = requests.get(vid_url).json()["result"]["file_path"]
-    vid_download_url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{vid_file}'
-    vid_data = requests.get(vid_download_url)
+    vid_file = \
+    requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={message.video.file_id}').json()["result"][
+        "file_path"]
+    vid_data = requests.get(f'https://api.telegram.org/file/bot{BOT_TOKEN}/{vid_file}')
     with open(f'user_data/{message.from_user.id}/video.mp4', 'wb') as f:
         f.write(vid_data.content)
+
     bot.reply_to(
         message,
-        f'Видео сохранено и будет обработано в ближайшее время. \nURL: {url}, \nПуть к видео: user_data/{message.from_user.id}/video.mp4'
+        f'Подождите, видео обрабатывается...'
+    )
+
+    cap = cv2.VideoCapture(f'user_data/{message.from_user.id}/video.mp4')
+    frames_amount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    for i in range(min(frames_amount, 60)): # 60 кадров будет достаточно
+        success, frame = cap.read()
+        if not success:
+            break
+        cv2.imwrite(f'user_data/{message.from_user.id}/frames/{i + 1}.png', frame)
+
+    bot.reply_to(
+        message,
+        f'Видео сохранено и будет обработано ИИ в ближайшее время.'
     )
 
 
