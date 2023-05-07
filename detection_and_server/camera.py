@@ -7,13 +7,14 @@ cam = cv.VideoCapture(0)
 
 def get_frame():
     _, frame = cam.read()
-    scale_percent = 40  # percent of original size
+    scale_percent = 70  # percent of original size
     width = int(frame.shape[1] * scale_percent / 100)
     height = int(frame.shape[0] * scale_percent / 100)
     dim = (width, height)
     frame = cv.resize(frame, dim, interpolation=cv.INTER_AREA)
     _, frame = cv.imencode('.JPEG', frame)
     return frame
+
 
 def gen():
     while True:
@@ -25,7 +26,7 @@ def gen():
 @app.route('/stream')
 def stream():
     return Response(gen(),
-                        mimetype='multipart/x-mixed-replace; boundary=frame')
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 @app.route('/')
