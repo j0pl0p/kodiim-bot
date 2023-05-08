@@ -81,7 +81,7 @@ def check(link):
             break
 
     if len(boxes) == 0:
-        return [False, frame]
+        return [False, []]
     else:
         # cv2.imshow('frame', frame)
         # cv2.waitKey(0)

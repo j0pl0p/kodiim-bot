@@ -7,7 +7,7 @@ import cv2
 from detection_and_server.detection import check
 import schedule
 import time
-import asyncio
+import threading
 
 BOT_TOKEN = '6130737728:AAEH_8HaguB05phCGzOI-GZQxkBfnCFx8-E'
 URL_REGEX = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
@@ -46,10 +46,6 @@ def get_link(message):
 def get_video(message):
     link = message.text
     if re.fullmatch(URL_REGEX, link):
-        if not os.path.exists(f'user_data/{message.from_user.id}/'):
-            os.makedirs(f'user_data/{message.from_user.id}/')
-        with open(f'user_data/{message.from_user.id}/camera_url.txt', 'w') as f:
-            f.write(link)
         new_msg = bot.reply_to(message, 'Теперь отправьте видео')
         bot.register_next_step_handler(new_msg, download_video, link)
     else:
@@ -89,42 +85,51 @@ def download_video(message, url):
         message,
         f'Видео сохранено и будет обработано ИИ в ближайшее время.'
     )
+    if not os.path.exists(f'user_data/{message.from_user.id}/'):
+        os.makedirs(f'user_data/{message.from_user.id}/')
+    with open(f'user_data/{message.from_user.id}/camera_url.txt', 'w') as f:
+        f.write(url)
 
 
-async def cam_check():
-    for userid in os.listdir('user_data'):
-        with open(f'user_data/{userid}/camera_url.txt', 'r') as f:
-            camera_url = f.readline().strip()
-        res = check(camera_url)
-        # print(res)
-        if res[0]:
-            bot.send_message(userid, "Найден нарушитель")
-            cv2.imwrite(f'user_data/{userid}/intruder.png', res[1])
-            with open(f'user_data/{userid}/intruder.png', 'rb') as img:
-                bot.send_photo(
-                    userid,
-                    img
-                )
+def cam_check():
+    try:
+        for userid in os.listdir('user_data'):
+            print('check ' + userid)
+            with open(f'user_data/{userid}/camera_url.txt', 'r') as f:
+                camera_url = f.readline().strip()
+            res = check(camera_url)
+            # print(res)
+            if res[0]:
+                bot.send_message(userid, "Найден нарушитель")
+                cv2.imwrite(f'user_data/{userid}/intruder.png', res[1])
+                with open(f'user_data/{userid}/intruder.png', 'rb') as img:
+                    bot.send_photo(
+                        userid,
+                        img
+                    )
+            else:
+                print('nothing found')
+    except FileNotFoundError:
+        return
 
 
 # schedule.every(5).seconds.do(cam_check)
 
 # bot.infinity_polling()
 
-async def checking():
+def bot_start():
+    bot.polling(none_stop=True)
+
+
+def checking():
+    schedule.every(5).seconds.do(cam_check)
     while True:
-        await cam_check()
-        await asyncio.sleep(3)
-
-
-async def start_bot():
-    bot.polling()
-
-
-async def main():
-    await asyncio.gather(start_bot(), checking())
+        schedule.run_pending()
+        time.sleep(1)
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    t1, t2 = threading.Thread(target=bot_start), threading.Thread(target=checking)
+    t1.start()
+
+    t2.start()
